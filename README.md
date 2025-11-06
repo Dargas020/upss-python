@@ -20,7 +20,7 @@ Built for developers who prioritize **data confidentiality** and **integrity**, 
 ### Installation
 
 ```bash
-pip install upss
+pip install upss-py
 ```
 ### Server Example
 
