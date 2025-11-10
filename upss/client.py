@@ -1,10 +1,13 @@
 import base64
 import socket
+import time
+
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 
-from upss import utils, consts
+from upss import utils, consts, log
+from upss.connection import ConnectionHandler
 from upss.models import Package, Types, Status
 from upss.security import cryptographer
 
@@ -23,13 +26,13 @@ def encrypt(data_str: str, pem_public_key: str):
     return encrypted_data
 
 
-def connect(url_str: str, encoding: str, send_data, key):
+def connect(url_str: str, encoding: str, key):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     url_format = utils.generate_url(url_str)
     try:
         s.connect((url_format.addr, url_format.port))
-        print(f"Connected to {url_str}")
+        log.i("COMMON HANDLER", f"Connected to {url_str}")
 
         package = Package(url_format.path, Types.SEND, {"msg": "hello"})
         s.sendall(package.get_json().encode(encoding))
@@ -58,18 +61,20 @@ def connect(url_str: str, encoding: str, send_data, key):
             data = s.recv(1024)
             package = utils.generate_package(data.decode(encoding))
             if package.type == Types.STATUS and package.data["status"] == Status.error:
-                print("Connection to handler failed")
+                log.e(url_format.path, "Connection to handler failed")
 
-            handler_body_package = Package(url_format.path, Types.STATUS, send_data)
-            s.sendall(handler_body_package.get_json().encode(encoding))
+            # handler_body_package = Package(url_format.path, Types.STATUS, {"msg": cryptographer.encrypt_data("Hello Server!!!", "utf-8", key)})
+            # s.sendall(handler_body_package.get_json().encode(encoding))
+            #
+            # response_data = s.recv(1048576)
+            # print(response_data.decode(encoding))
 
-            response_data = s.recv(1048576)
-            print(response_data.decode(encoding))
-
-            return utils.generate_package(response_data.decode(encoding))
+            # return utils.generate_package(response_data.decode(encoding))
+            yield ConnectionHandler(s, encoding)
+            time.sleep(1000)
         else:
-            print("Key exchange failed at initial SWAP_KEYS step.")
+            log.e(url_format.path, "Key exchange failed at initial SWAP_KEYS step.")
     except Exception as e:
-        print(f"Client error: {e}")
+        log.e(url_format.path, f"Client error: {e}")
     finally:
         s.close()

@@ -26,21 +26,21 @@ pip install upss-py
 
 ```python
 from upss import UPSS
+from upss.models import Status
 from upss.security import cryptographer
 
 app = UPSS(
     addr="localhost",
     port=1234,
-    encoding="utf-8",
-    crypto=cryptographer.generate_crypto()
+    encoding="utf-8"
 )
 
 
 # Example handle "/" 
 @app.url("/")
-def auth_handler(client_sock, encoding, key, data):
+def auth_handler(client, encoding, key, data):
     print(cryptographer.decrypt_data(data["msg"], encoding, key))  # Hello Server!!!
-    pass
+    return Status.ok  # Return OK
 
 
 if __name__ == "__main__":
@@ -49,9 +49,10 @@ if __name__ == "__main__":
 ### Client Example
 
 ```python
-from upss import client
-from upss.security import cryptographer
 from cryptography.fernet import Fernet
+from upss import client
+from upss.models import Package, Types
+from upss.security import cryptographer
 
 key = Fernet.generate_key()
 
@@ -60,7 +61,9 @@ data = {
 }
 
 # Connect to "/"
-client.connect("upss://localhost:1234", encoding="utf-8", send_data=data, key=key)
+for connection in client.connect("upss://localhost:1234", encoding="utf-8", key=key):
+    connection.send(Package("/", Types.SEND, data))  # Send `Hello Server!!!`
+    print(connection.get())  # Server said: OK
 ```
 
 ## 🔒 Security Model

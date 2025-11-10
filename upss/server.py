@@ -1,7 +1,9 @@
 import base64
 import socket
+import time
 
-from upss import utils, consts
+from upss import utils, consts, log
+from upss.connection import ConnectionHandler
 from upss.models import Types, Package, Status
 from upss.security import Crypto, cryptographer
 
@@ -15,7 +17,7 @@ def start(addr: str, port: int, encoding: str, crypto: Crypto, handlers):
 
         while True:
             client_sock, client_addr = serv_sock.accept()
-            print('Connected by', client_addr)
+            log.i("COMMON HANDLER", f"Connected by {client_addr}")
 
             initial_data = client_sock.recv(1024)
             if not initial_data:
@@ -73,27 +75,30 @@ def start(addr: str, port: int, encoding: str, crypto: Crypto, handlers):
 
                             if requested_path in handlers:
                                 handler_func = handlers[requested_path]
-                                print(f"Calling handler for path: {requested_path}")
                                 try:
-                                    handler_func(client_sock=client_sock, encoding=encoding,
-                                                 key=key, data=handler_body_package.data)
+                                    status = handler_func(client=ConnectionHandler(client_sock, encoding),
+                                                          encoding=encoding, key=key, data=handler_body_package.data)
+                                    answer_package = Package(requested_path, Types.STATUS, {"status": status})
+                                    client_sock.sendall(answer_package.get_json().encode(encoding))
                                 except Exception as e:
-                                    print(f"Error in handler for path {requested_path}: {e}")
+                                    log.e(requested_path, f"Error in handler for path {requested_path}: {e}")
                                     error_package = Package(requested_path, Types.STATUS, {"status": Status.error})
                                     client_sock.sendall(error_package.get_json().encode(encoding))
                             else:
-                                print(f"No handler found for path: {requested_path}")
+                                log.e(requested_path, f"No handler found for path: {requested_path}")
                                 error_package = Package(requested_path, Types.STATUS, {"status": Status.error})
                                 client_sock.sendall(error_package.get_json().encode(encoding))
 
                         elif package.data["status"] == Status.error:
-                            print(f"The encryption key exchange failed with the following error: {Status.error}")
+                            log.e("COMMON HANDLER",
+                                  f"The encryption key exchange failed with the following error: {Status.error}")
                         else:
-                            print(f"The encryption key exchange failed with the following error: {Status.wrong_format}")
+                            log.e("COMMON HANDLER",
+                                  f"The encryption key exchange failed with the following error: {Status.wrong_format}")
                 else:
-                    print("Expected SEND after public key, got:", key_package.type)
+                    log.e("COMMON HANDLER", f"Expected SEND after public key, got: {key_package.type}")
             else:
-                print("Expected initial SEND packet, got:", package.type)
+                log.e("COMMON HANDLER", f"Expected initial SEND packet, got: {package.type}")
 
             client_sock.close()
 

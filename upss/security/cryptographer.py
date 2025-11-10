@@ -16,13 +16,10 @@ def generate_crypto():
     )
     public_key = private_key.public_key()
 
-    # Serialize the public key to PEM format
     pem_public_key = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     ).decode('utf-8')
-
-    print(pem_public_key)
 
     return Crypto(private_key, public_key, pem_public_key)
 
