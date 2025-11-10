@@ -5,7 +5,7 @@ from upss.security import Crypto, cryptographer
 class UPSS:
     def __init__(self,
                  addr: str = "0.0.0.0",
-                 port: int = "8080",
+                 port: int = 8080,
                  encoding: str = "utf-8",
                  crypto: Crypto = cryptographer.generate_crypto(),
                  title: str = "UPSS API",
